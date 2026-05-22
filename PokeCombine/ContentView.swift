@@ -57,6 +57,11 @@ struct ContentView: View {
                 .navigationTitle("Pokèdex")
             }
         }
+        .overlay {
+            if viewModel.loading {
+                ProgressView()
+            }
+        }
     }
 }
 
