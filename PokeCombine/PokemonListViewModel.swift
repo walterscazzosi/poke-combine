@@ -4,14 +4,20 @@
 //  Created by Scazzosi Walter on 22/05/2026.
 //
 
+import Combine
 import Foundation
 
 struct PokemonResponse: Decodable {
-    let results: [Pokemon]
+    let results: [PokemonResult]
 }
 
-struct Pokemon: Identifiable, Decodable {
-    var id = UUID()
+struct PokemonResult: Decodable {
+    let name: String
+    let url: String
+}
+
+struct Pokemon: Identifiable {
+    let id = UUID()
     let name: String
     let url: String
 }
@@ -20,20 +26,18 @@ struct Pokemon: Identifiable, Decodable {
 class PokemonListViewModel {
     var pokemons: [Pokemon] = []
     
+    var cancellables = Set<AnyCancellable>()
+    
     func loadPokemon() {
         guard let url = URL(string: "https://pokeapi.co/api/v2/pokemon?limit=100") else { return }
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            if let data = data {
-                do {
-                    let result = try JSONDecoder().decode(PokemonResponse.self, from: data)
-                    DispatchQueue.main.async {
-                        self.pokemons = result.results.map { Pokemon(name: $0.name, url: $0.url) }
-                    }
-                } catch {
-                    print("Failed to decode JSON: \(error)")
-                }
-            }
-        }.resume()
+        URLSession.shared.dataTaskPublisher(for: url)
+            .map(\.data)
+            .decode(type: PokemonResponse.self, decoder: JSONDecoder())
+            .sink(
+                receiveCompletion: { print ("Received completion: \($0).") },
+                receiveValue: { self.pokemons = $0.results.map({ Pokemon(name: $0.name, url: $0.url) }) }
+            )
+            .store(in: &cancellables)
     }
 }
